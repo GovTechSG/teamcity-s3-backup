@@ -101,20 +101,29 @@
           dest: "{{ tempfile }}"
         tags:
           - upload_backup
+      # 😱 Nasty boto bug: https://github.com/boto/boto/issues/2207
+      # - name: Upload to S3
+      #   s3:
+      #     aws_access_key: "{{ aws.access_key }}"
+      #     aws_secret_key: "{{ aws.secret_key }}"
+      #     bucket: "{{ s3.bucket }}"
+      #     encrypt: yes
+      #     mode: put
+      #     object: "{{ s3.object_prefix }}/{{ teamcity.backup_name }}"
+      #     overwrite: "{{ s3.overwrite_mode | default(never) }}"
+      #     region: "{{ aws.region }}"
+      #     src: "{{ tempfile }}"
+      #     retries: "{{ s3.retries | default(5) }}"
+      #   tags:
+      #     - upload_backup
       - name: Upload to S3
-        s3:
-          aws_access_key: "{{ aws.access_key }}"
-          aws_secret_key: "{{ aws.secret_key }}"
-          bucket: "{{ s3.bucket }}"
-          encrypt: yes
-          mode: put
-          object: "{{ s3.object_prefix }}/{{ teamcity.backup_name }}"
-          overwrite: "{{ s3.overwrite_mode | default(never) }}"
-          region: "{{ aws.region }}"
-          src: "{{ tempfile }}"
-          retries: "{{ s3.retries | default(5) }}"
-        notify:
-          - Delete Temporary File
+        environment:
+          AWS_ACCESS_KEY_ID: "{{ aws.access_key }}"
+          AWS_SECRET_ACCESS_KEY: "{{ aws.secret_key }}"
+          AWS_DEFAULT_REGION: "{{ aws.region }}"
+        shell: aws s3 cp "{{ tempfile }}" "s3://{{ s3.bucket }}/{{ teamcity.backup_name }}" --sse
+        args:
+          chdir: /
         tags:
           - upload_backup
       always:
