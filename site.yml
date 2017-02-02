@@ -4,7 +4,7 @@
   force_handlers: True
   vars:
     teamcity:
-      backup_name: "TeamCity_Backup_{{ ansible_date_time.iso8601 | regex_replace(':', '-') }}.zip"
+      backup_name: "TeamCity_Backup.zip"
     timeout:
       retries: 20
       delay: 30
@@ -59,6 +59,10 @@
           var: teamcity_backup_request.content
         tags:
           - trigger_backup
+      - name: Set backup file name
+        set_fact:
+          teamcity:
+            backup_name: "{{ teamcity_backup_request.content }}"
       - name: Wait for backup to be done
         uri:
           url: "{{ teamcity.base_url }}/app/rest/server/backup"
@@ -89,7 +93,7 @@
           tempfile: "{{ tempfile_shell.stdout }}"
         tags:
           - upload_backup
-      - name: Download backup
+      - name: "Download backup {{ teamcity.backup_name }}"
         uri:
           url: "{{ teamcity.base_url }}/get/file/backup/{{ teamcity.backup_name }}"
           method: "GET"
