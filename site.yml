@@ -1,0 +1,14 @@
+---
+- name: Backup Teamcity
+  hosts: all
+  vars:
+    s3:
+      backup_path: ""
+    teamcity:
+      backup_name: "TeamCity_Backup_{{ ansible_date_time.iso8601 | regex_replace(':', '-') }}.zip"
+  tasks:
+    - name: Include secrets
+      include_vars: secrets.yml
+    - name: Backup name
+      debug:
+        var: teamcity
