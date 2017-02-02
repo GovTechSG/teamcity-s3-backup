@@ -3,17 +3,15 @@
   hosts: all
   force_handlers: True
   vars:
-    s3:
-      overwrite_mode: always
-      retries: 5
     teamcity:
       backup_name: "TeamCity_Backup_{{ ansible_date_time.iso8601 | regex_replace(':', '-') }}.zip"
     timeout:
       retries: 20
       delay: 30
+    secrets_file: "secrets.yml"
   tasks:
     - name: Include secrets
-      include_vars: secrets.yml
+      include_vars: "{{ secrets_file }}"
       tags:
         - always
     - name: Backup name
