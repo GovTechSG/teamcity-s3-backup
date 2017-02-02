@@ -1,9 +1,11 @@
 ---
 - name: Backup Teamcity
   hosts: all
+  force_handlers: True
   vars:
     s3:
-      backup_path: ""
+      overwrite_mode: always
+      retries: 5
     teamcity:
       backup_name: "TeamCity_Backup_{{ ansible_date_time.iso8601 | regex_replace(':', '-') }}.zip"
     timeout:
@@ -19,86 +21,106 @@
         var: teamcity.backup_name
       tags:
         - always
-    - name: Check Backup Status
-      uri:
-        url: "{{ teamcity.base_url }}/app/rest/server/backup"
-        method: "GET"
-        user: "{{ teamcity.username }}"
-        password: "{{ teamcity.password }}"
-        return_content: yes
-      register: "teamcity_backup_status"
-      tags:
-        - trigger_backup
-    - name: Wait for backup to be done
-      uri:
-        url: "{{ teamcity.base_url }}/app/rest/server/backup"
-        method: "GET"
-        user: "{{ teamcity.username }}"
-        password: "{{ teamcity.password }}"
-        return_content: yes
-      register: "teamcity_backup_status"
-      until: teamcity_backup_status.content == "Idle"
-      retries: "{{ timeout.retries }}"
-      delay: "{{ timeout.delay }}"
-      tags:
-        - trigger_backup
-    - name: Trigger backup
-      when: teamcity_backup_status.content == "Idle"
-      uri:
-        url: "{{ teamcity.base_url }}/app/rest/server/backup?includeConfigs=true&includeDatabase=true&includeBuildLogs=true&fileName={{ teamcity.backup_name }}"
-        method: "POST"
-        user: "{{ teamcity.username }}"
-        password: "{{ teamcity.password }}"
-        return_content: yes
-      register: "teamcity_backup_request"
-      tags:
-        - trigger_backup
-    - name: Request Status
-      debug:
-        var: teamcity_backup_request.content
-      tags:
-        - trigger_backup
-    - name: Wait for backup to be done
-      uri:
-        url: "{{ teamcity.base_url }}/app/rest/server/backup"
-        method: "GET"
-        user: "{{ teamcity.username }}"
-        password: "{{ teamcity.password }}"
-        return_content: yes
-      register: "teamcity_backup_status"
-      until: teamcity_backup_status.content == "Idle"
-      retries: "{{ timeout.retries }}"
-      delay: "{{ timeout.delay }}"
-      tags:
-        - trigger_backup
-    # Ansible 2.3
-    # - name: Get temporary file
-    #   tempfile:
-    #     state: file
-    #     suffix: teamcity
-    #   register: "tempfile"
-    - name: Temporary file
-      shell: mktemp
-      register: tempfile_shell
-      tags:
-        - upload_backup
-    - name: Set Temporary file
-      set_fact:
-        tempfile: "{{ tempfile_shell.stdout }}"
-      tags:
-        - upload_backup
-    - name: Download backup
-      uri:
-        url: "{{ teamcity.base_url }}/get/file/backup/{{ teamcity.backup_name }}"
-        method: "GET"
-        user: "{{ teamcity.username }}"
-        password: "{{ teamcity.password }}"
-        follow_redirects: all
-        dest: "{{ tempfile }}"
-      tags:
-        - upload_backup
-    - name: Tempfile
-      debug:
-        var: tempfile
-      tags:
-        - upload_backup
+    - block:
+      - name: Check Backup Status
+        uri:
+          url: "{{ teamcity.base_url }}/app/rest/server/backup"
+          method: "GET"
+          user: "{{ teamcity.username }}"
+          password: "{{ teamcity.password }}"
+          return_content: yes
+        register: "teamcity_backup_status"
+        tags:
+          - trigger_backup
+      - name: Wait for backup to be done
+        uri:
+          url: "{{ teamcity.base_url }}/app/rest/server/backup"
+          method: "GET"
+          user: "{{ teamcity.username }}"
+          password: "{{ teamcity.password }}"
+          return_content: yes
+        register: "teamcity_backup_status"
+        until: teamcity_backup_status.content == "Idle"
+        retries: "{{ timeout.retries }}"
+        delay: "{{ timeout.delay }}"
+        tags:
+          - trigger_backup
+      - name: Trigger backup
+        when: teamcity_backup_status.content == "Idle"
+        uri:
+          url: "{{ teamcity.base_url }}/app/rest/server/backup?includeConfigs=true&includeDatabase=true&includeBuildLogs=true&fileName={{ teamcity.backup_name }}"
+          method: "POST"
+          user: "{{ teamcity.username }}"
+          password: "{{ teamcity.password }}"
+          return_content: yes
+        register: "teamcity_backup_request"
+        tags:
+          - trigger_backup
+      - name: Request Status
+        debug:
+          var: teamcity_backup_request.content
+        tags:
+          - trigger_backup
+      - name: Wait for backup to be done
+        uri:
+          url: "{{ teamcity.base_url }}/app/rest/server/backup"
+          method: "GET"
+          user: "{{ teamcity.username }}"
+          password: "{{ teamcity.password }}"
+          return_content: yes
+        register: "teamcity_backup_status"
+        until: teamcity_backup_status.content == "Idle"
+        retries: "{{ timeout.retries }}"
+        delay: "{{ timeout.delay }}"
+        tags:
+          - trigger_backup
+    - block:
+      # Ansible 2.3
+      # - name: Get temporary file
+      #   tempfile:
+      #     state: file
+      #     suffix: teamcity
+      #   register: "tempfile"
+      - name: Temporary file
+        shell: mktemp
+        register: tempfile_shell
+        tags:
+          - upload_backup
+      - name: Set Temporary file
+        set_fact:
+          tempfile: "{{ tempfile_shell.stdout }}"
+        tags:
+          - upload_backup
+      - name: Download backup
+        uri:
+          url: "{{ teamcity.base_url }}/get/file/backup/{{ teamcity.backup_name }}"
+          method: "GET"
+          user: "{{ teamcity.username }}"
+          password: "{{ teamcity.password }}"
+          follow_redirects: all
+          dest: "{{ tempfile }}"
+        tags:
+          - upload_backup
+      - name: Upload to S3
+        s3:
+          aws_access_key: "{{ aws.access_key }}"
+          aws_secret_key: "{{ aws.secret_key }}"
+          bucket: "{{ s3.bucket }}"
+          encrypt: yes
+          mode: put
+          object: "{{ s3.object_prefix }}/{{ teamcity.backup_name }}"
+          overwrite: "{{ s3.overwrite_mode | default(never) }}"
+          region: "{{ aws.region }}"
+          src: "{{ tempfile }}"
+          retries: "{{ s3.retries | default(5) }}"
+        notify:
+          - Delete Temporary File
+        tags:
+          - upload_backup
+      always:
+        - name: Delete Temporary File
+          file:
+            path: "{{ tempfile }}"
+            state: absent
+          tags:
+            - upload_backup
