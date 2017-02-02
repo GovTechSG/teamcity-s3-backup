@@ -123,7 +123,7 @@
           AWS_ACCESS_KEY_ID: "{{ aws.access_key }}"
           AWS_SECRET_ACCESS_KEY: "{{ aws.secret_key }}"
           AWS_DEFAULT_REGION: "{{ aws.region }}"
-        shell: aws s3 cp "{{ tempfile }}" "s3://{{ s3.bucket }}/{{ teamcity.backup_name }}" --sse
+        shell: aws s3 cp "{{ tempfile }}" "s3://{{ s3.bucket }}/{{ s3.object_prefix }}{{ teamcity.backup_name }}" --sse
         args:
           chdir: /
         tags:
