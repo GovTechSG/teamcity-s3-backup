@@ -101,6 +101,7 @@
           password: "{{ teamcity.password }}"
           follow_redirects: all
           dest: "{{ tempfile }}"
+          status_code: 200, 304 # https://github.com/ansible/ansible/issues/12917
         tags:
           - upload_backup
       # 😱 Nasty boto bug: https://github.com/boto/boto/issues/2207
