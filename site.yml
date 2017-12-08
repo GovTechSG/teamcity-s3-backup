@@ -79,20 +79,11 @@
         tags:
           - trigger_backup
     - block:
-      # Ansible 2.3
-      # - name: Get temporary file
-      #   tempfile:
-      #     state: file
-      #     suffix: teamcity
-      #   register: "tempfile"
-      - name: Temporary file
-        shell: mktemp
-        register: tempfile_shell
-        tags:
-          - upload_backup
-      - name: Set Temporary file
-        set_fact:
-          tempfile: "{{ tempfile_shell.stdout }}"
+      - name: Get temporary file
+        tempfile:
+          state: file
+          suffix: teamcity
+        register: "tempfile"
         tags:
           - upload_backup
       - name: "Download backup {{ teamcity.backup_name }}"
@@ -100,9 +91,19 @@
           url: "{{ teamcity.base_url }}/get/file/backup/{{ teamcity.backup_name }}"
           url_username: "{{ teamcity.username }}"
           url_password: "{{ teamcity.password }}"
-          dest: "{{ tempfile }}"
+          dest: "{{ tempfile.path }}"
+          force: "yes"
         tags:
           - upload_backup
+      - name: "Stat downloaded file"
+        stat:
+          path: "{{ tempfile.path }}"
+        register: downloaded_file
+      - debug:
+          msg: "{{ teamcity.base_url }}/get/file/backup/{{ teamcity.backup_name }}"
+      - name: Print File information
+        debug:
+          msg: "Downloaded file size: {{ downloaded_file.stat.size }} Bytes"
       # 😱 Nasty boto bug: https://github.com/boto/boto/issues/2207
       # - name: Upload to S3
       #   s3:
@@ -114,7 +115,7 @@
       #     object: "{{ s3.object_prefix }}/{{ teamcity.backup_name }}"
       #     overwrite: "{{ s3.overwrite_mode | default(never) }}"
       #     region: "{{ aws.region }}"
-      #     src: "{{ tempfile }}"
+      #     src: "{{ tempfile.path }}"
       #     retries: "{{ s3.retries | default(5) }}"
       #   tags:
       #     - upload_backup
@@ -123,7 +124,7 @@
           AWS_ACCESS_KEY_ID: "{{ aws.access_key }}"
           AWS_SECRET_ACCESS_KEY: "{{ aws.secret_key }}"
           AWS_DEFAULT_REGION: "{{ aws.region }}"
-        shell: aws s3 cp "{{ tempfile }}" "s3://{{ s3.bucket }}/{{ s3.object_prefix }}{{ teamcity.backup_name }}" --sse
+        shell: aws s3 cp "{{ tempfile.path }}" "s3://{{ s3.bucket }}/{{ s3.object_prefix }}{{ teamcity.backup_name }}" --sse
         args:
           chdir: /
         tags:
@@ -131,7 +132,7 @@
       always:
         - name: Delete Temporary File
           file:
-            path: "{{ tempfile }}"
+            path: "{{ tempfile.path }}"
             state: absent
           tags:
             - upload_backup
