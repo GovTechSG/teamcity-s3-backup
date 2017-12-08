@@ -63,6 +63,8 @@
         set_fact:
           teamcity:
             backup_name: "{{ teamcity_backup_request.content }}"
+        tags:
+          - trigger_backup
       - name: Wait for backup to be done
         uri:
           url: "{{ teamcity.base_url }}/app/rest/server/backup"
@@ -94,14 +96,11 @@
         tags:
           - upload_backup
       - name: "Download backup {{ teamcity.backup_name }}"
-        uri:
+        get_url:
           url: "{{ teamcity.base_url }}/get/file/backup/{{ teamcity.backup_name }}"
-          method: "GET"
-          user: "{{ teamcity.username }}"
-          password: "{{ teamcity.password }}"
-          follow_redirects: all
+          url_username: "{{ teamcity.username }}"
+          url_password: "{{ teamcity.password }}"
           dest: "{{ tempfile }}"
-          status_code: 200, 304 # https://github.com/ansible/ansible/issues/12917
         tags:
           - upload_backup
       # 😱 Nasty boto bug: https://github.com/boto/boto/issues/2207
