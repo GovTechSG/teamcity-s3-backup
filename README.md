@@ -1,12 +1,16 @@
 # Backup Teamcity Settings
 
 ## Pre-requisites
+
 ### Software on Ansible Machine
+
 You will need the following installed on the machine:
- - [Ansible 2.2](https://docs.ansible.com/ansible/intro_installation.html)
- - [AWS CLI](https://github.com/aws/aws-cli)
+
+- [Ansible 2.4](https://docs.ansible.com/ansible/intro_installation.html)
+- [AWS CLI](https://github.com/aws/aws-cli)
 
 ### Amazon S3
+
 You will need to setup a S3 bucket with the appropriate settings.
 
 Then, you should create a IAM user specifically with permissions to only put objects into the bucket. An example Policy
@@ -43,16 +47,21 @@ document is this:
 ```
 
 ### TeamCity
+
 You should also setup a TeamCity user solely for the purpose of trigerring and downloading backups only. The user will
 need the `Change backup settings and control backup process` permission.
 
 ### Ansible Secrets
+
 Refer to `secrets.template.yml` and fill it in. By default, the playbook will look for the secrets in `secrets.yml`, but
 you can override it with the `secrets_file` variable.
 
 ### Playbook Variables
-The playbook has additional variables you can override at run time, in addition to the secrets file it will include. Refer
-to the playbook.
+
+The playbook has additional variables you can override at run time, in addition to the secrets file
+it will include. Refer to the playbook. You might want to refer to
+[variable precedence](https://docs.ansible.com/ansible/latest/playbooks_variables.html#variable-precedence-where-should-i-put-a-variable)
+to decide where to place them.
 
 ## Running the entire playbook
 
@@ -63,11 +72,19 @@ would simply be
 ansible-playbook -i localhost --connection local site.yml
 ```
 
+Alternatively, you can use the provided Docker Compose file to run the playbook if you have `secrets.yml`
+in the current directory:
+
+```bash
+docker-compose up
+```
+
 ### Tags
+
 The playbook tasks occur in two separate and distinct stages that can be run independently. Each stage is tagged.
 
- - Trigger Backup on TeamCity (`trigger_backup`)
- - Download Backup from TeamCity and upload to S3 (`upload_backup`)
+- Trigger Backup on TeamCity (`trigger_backup`)
+- Download Backup from TeamCity and upload to S3 (`upload_backup`)
 
 For instance, to only trigger backup, do
 
@@ -76,6 +93,7 @@ ansible-playbook -i localhost --connection local site.yml --skip-tags upload_bac
 ```
 
 If you just want to upload a backup to S3, you will need to know the name of the backup and then do:
+
 ```bash
 ansible-playbook -i localhost --connection local site.yml \
   -e "{'teamcity': { 'backup_name': 'TeamCity_Backup_2017-02-02T05-28-36Z_20170202_052905.zip'}}" \

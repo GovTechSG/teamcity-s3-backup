@@ -1,0 +1,7 @@
+version: "2.0"
+services:
+  backup:
+    build: .
+    volumes:
+      - ./secrets.yml:/app/secrets.yml
+    command: ["ansible-playbook", "-i", "localhost", "--connection", "local", "site.yml"]
