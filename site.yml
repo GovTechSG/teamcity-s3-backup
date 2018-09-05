@@ -4,7 +4,7 @@
   force_handlers: True
   vars:
     teamcity:
-      backup_logs: "false"
+      backup_logs: "true"
       backup_name: "TeamCity_Backup.zip"
     timeout:
       retries: 20
