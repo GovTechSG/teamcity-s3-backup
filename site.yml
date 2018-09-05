@@ -4,6 +4,7 @@
   force_handlers: True
   vars:
     teamcity:
+      backup_logs: "true"
       backup_name: "TeamCity_Backup.zip"
     timeout:
       retries: 20
@@ -46,7 +47,7 @@
       - name: Trigger backup
         when: teamcity_backup_status.content == "Idle"
         uri:
-          url: "{{ teamcity.base_url }}/app/rest/server/backup?includeConfigs=true&includeDatabase=true&includeBuildLogs=true&fileName={{ teamcity.backup_name }}"
+          url: "{{ teamcity.base_url }}/app/rest/server/backup?includeConfigs=true&includeDatabase=true&includeBuildLogs={{ teamcity.backup_logs }}&fileName={{ teamcity.backup_name }}"
           method: "POST"
           user: "{{ teamcity.username }}"
           password: "{{ teamcity.password }}"
